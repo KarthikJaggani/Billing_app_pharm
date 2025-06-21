@@ -419,6 +419,8 @@ def pharmacy_form():
     return render_template("transaction_form.html", datetime=datetime.datetime)
 
 
+from datetime import datetime
+
 @app.route('/pharmacy/search_items')
 def search_items():
     if "user_id" not in session:
@@ -429,15 +431,13 @@ def search_items():
     is_admin = session.get('role') == 'admin'
 
     conn = get_db()
-    cur = conn.cursor(dictionary=True)
+    cur = conn.cursor()
 
     sql = """
-        SELECT item_id, item_name, batch_no,
-               expiry_date, pack, available_qty, mrp, selling_price
+        SELECT item_id, item_name, batch_no, expiry_date,
+               pack, available_qty, mrp, selling_price
         FROM master
-        WHERE UPPER(item_name) LIKE %s
-          AND DATE(expiry_date) >= CURRENT_DATE()
-          AND COALESCE(is_active, 'Y') = 'Y'
+        WHERE UPPER(item_name) LIKE %s AND date(expiry_date) >= CURDATE() AND COALESCE(is_active, 'Y') = 'Y'
     """
     params = [q + "%"]
 
@@ -449,7 +449,13 @@ def search_items():
 
     try:
         cur.execute(sql, params)
-        rows = cur.fetchall()
+        rows = []
+        for r in cur.fetchall():
+            row = dict(zip([d[0] for d in cur.description], r))
+            # ✅ convert expiry_date to string format 'YYYY-MM-DD'
+            if isinstance(row["expiry_date"], datetime):
+                row["expiry_date"] = row["expiry_date"].strftime("%Y-%m-%d")
+            rows.append(row)
         return jsonify(rows)
     except Exception as e:
         return jsonify({"error": f"DB error: {str(e)}"}), 500
