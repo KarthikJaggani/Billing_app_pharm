@@ -285,10 +285,11 @@ def delete_item(item_id):
 def master_search():
     if "user_id" not in session:
         return jsonify({"error": "Unauthorized"}), 403
+
     refresh_user_role()
     q = request.args.get('q', '').upper()
     conn = get_db()
-    cur = conn.cursor()
+    cur = conn.cursor(dictionary=True)
 
     user_id = session.get("user_id")
     role = session.get("role", "")
@@ -306,7 +307,13 @@ def master_search():
         params.append(user_id)
 
     cur.execute(base_sql, params)
-    rows = [dict(zip([d[0] for d in cur.description], r)) for r in cur.fetchall()]
+    rows = cur.fetchall()
+
+    # Convert expiry_date to YYYY-MM-DD format
+    for row in rows:
+        if row["expiry_date"] and isinstance(row["expiry_date"], (str, bytes)) is False:
+            row["expiry_date"] = row["expiry_date"].isoformat()
+
     cur.close()
     conn.close()
     return jsonify(rows)
