@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, redirect, jsonify, session, f
 from email.utils import parsedate_to_datetime
 import mysql.connector
 import pandas as pd
-from datetime import datetime
+import datetime 
 import os
 import uuid
 
@@ -423,7 +423,8 @@ def pharmacy_form():
 @app.route('/pharmacy/search_items')
 def search_items():
     if "user_id" not in session:
-        return jsonify({"error": "unauthorized"}), 401
+        return jsonify([])  # ✅ empty list instead of {"error": ...}
+
     refresh_user_role()
     q = request.args.get('q', '').upper()
     user_id = session.get('user_id')
@@ -452,26 +453,23 @@ def search_items():
         for r in cur.fetchall():
             row = dict(zip([d[0] for d in cur.description], r))
             expiry = row.get("expiry_date")
-            if isinstance(expiry, datetime):
-                row["expiry_date"] = expiry.strftime("%Y-%m-%d")
-            elif isinstance(expiry, str) and "GMT" in expiry:
-                try:
-                    dt = datetime.strptime(expiry, "%a, %d %b %Y %H:%M:%S %Z")
-                    row["expiry_date"] = dt.strftime("%Y-%m-%d")
-                except:
-                    row["expiry_date"] = ""
+            if isinstance(row["expiry_date"], datetime.date):
+                row["expiry_date"] = row["expiry_date"].strftime("%Y-%m-%d")
             rows.append(row)
         return jsonify(rows)
     except Exception as e:
-        return jsonify({"error": f"❌ DB error: {str(e)}"}), 500
+        print("❌ Error in /pharmacy/search_items:", e)
+        return jsonify([])  # ✅ always return a list to JS
     finally:
         cur.close()
         conn.close()
+
 
 @app.route('/pharmacy/search_bills')
 def search_bills():
     if "user_id" not in session:
         return jsonify({"error": "unauthorized"}), 401
+
     refresh_user_role()
     q = request.args.get('q', '').upper()
     user_id = session.get("user_id")
@@ -496,12 +494,27 @@ def search_bills():
     try:
         cur.execute(base_sql, params)
         rows = cur.fetchall()
+
+        # ✅ Format sale_date for JS if needed
+        for row in rows:
+            sale_date = row.get("sale_date")
+            if isinstance(sale_date, (datetime.date, datetime.datetime)):
+                row["sale_date"] = sale_date.strftime("%Y-%m-%d")
+            elif isinstance(sale_date, str) and "GMT" in sale_date:
+                try:
+                    dt = datetime.datetime.strptime(sale_date, "%a, %d %b %Y %H:%M:%S %Z")
+                    row["sale_date"] = dt.strftime("%Y-%m-%d")
+                except:
+                    row["sale_date"] = ""
+
         return jsonify(rows)
+
     except Exception as e:
         return jsonify({"error": f"DB error: {str(e)}"}), 500
     finally:
         cur.close()
         conn.close()
+
 
 
 @app.route('/pharmacy/get_bill')
@@ -533,6 +546,18 @@ def get_bill():
     """, (bill_no,))
     items = cur.fetchall()
 
+    # ✅ Format expiry_date to YYYY-MM-DD using only import datetime
+    for row in items:
+        exp = row.get("expiry_date")
+        if isinstance(exp, (datetime.date, datetime.datetime)):
+            row["expiry_date"] = exp.strftime("%Y-%m-%d")
+        elif isinstance(exp, str) and "GMT" in exp:
+            try:
+                dt = datetime.datetime.strptime(exp, "%a, %d %b %Y %H:%M:%S %Z")
+                row["expiry_date"] = dt.strftime("%Y-%m-%d")
+            except:
+                row["expiry_date"] = ""
+
     cur.execute("SELECT COUNT(*) AS cnt FROM returns_header WHERE bill_no = %s", (bill_no,))
     return_count = cur.fetchone()["cnt"]
     has_return = return_count > 0
@@ -540,6 +565,7 @@ def get_bill():
     cur.close()
     conn.close()
     return jsonify({'header': hdr, 'items': items, 'has_return': has_return})
+
 
 
 @app.route('/pharmacy/print_bill')
@@ -655,7 +681,6 @@ def pharmacy_reports():
     cur.execute(sql, params)
     rows = cur.fetchall()
     total_billing = sum((row["net_total"] or 0) for row in rows)
-
     return render_template('pharmacy_reports.html',
                            report_data=rows,
                            total_billing=total_billing,
@@ -1015,12 +1040,14 @@ def fetch_bill():
 
     try:
         with get_db() as con:
-            cur = con.cursor(dictionary=True)
+            cur = con.cursor(dictionary=True)  # ✅ ensures result is dict for easy access
 
+            # 🛑 Check if return already exists
             cur.execute("SELECT 1 FROM returns_header WHERE bill_no = %s", (bill_no,))
             if cur.fetchone():
                 return jsonify({"error": "❌ Return already done for this bill."})
 
+            # ✅ Fetch header
             cur.execute("""
                 SELECT sale_date, day_bill_id, customer_name, doctor_name, 
                        prescription_ref, payment_type, discount_percent
@@ -1031,6 +1058,19 @@ def fetch_bill():
             if not header_row:
                 return jsonify({"error": "❌ Bill not found."}), 404
 
+            # ✅ Format sale_date if needed
+            if isinstance(header_row["sale_date"], (datetime.date, datetime.datetime)):
+                header_row["sale_date"] = header_row["sale_date"].strftime("%Y-%m-%d")
+            elif isinstance(header_row["sale_date"], str) and "GMT" in header_row["sale_date"]:
+                try:
+                    parsed = datetime.datetime.strptime(header_row["sale_date"], "%a, %d %b %Y %H:%M:%S %Z")
+                    header_row["sale_date"] = parsed.strftime("%Y-%m-%d")
+                except:
+                    header_row["sale_date"] = ""
+
+            header = header_row
+
+            # ✅ Fetch item details
             cur.execute("""
                 SELECT i.item_id, m.item_name, i.batch_no, i.expiry_date, 
                        i.pack, i.available_qty, i.mrp, i.net_price, i.required_qty
@@ -1040,9 +1080,22 @@ def fetch_bill():
             """, (bill_no,))
             items = cur.fetchall()
 
-        return jsonify({"header": header_row, "items": items})
+            # ✅ Format expiry_date in each item
+            for row in items:
+                if isinstance(row["expiry_date"], (datetime.date, datetime.datetime)):
+                    row["expiry_date"] = row["expiry_date"].strftime("%Y-%m-%d")
+                elif isinstance(row["expiry_date"], str) and "GMT" in row["expiry_date"]:
+                    try:
+                        parsed = datetime.datetime.strptime(row["expiry_date"], "%a, %d %b %Y %H:%M:%S %Z")
+                        row["expiry_date"] = parsed.strftime("%Y-%m-%d")
+                    except:
+                        row["expiry_date"] = ""
+
+        return jsonify({"header": header, "items": items})
+
     except Exception as e:
         return jsonify({"error": f"❌ Internal Server Error: {str(e)}"}), 500
+
 
 
 @app.route('/returns/search')
@@ -1058,34 +1111,63 @@ def search_returns():
             LIMIT 20
         """, (f'%{q}%', f'%{q}%'))
         rows = cur.fetchall()
+
+        # ✅ Format return_date as YYYY-MM-DD
+        for row in rows:
+            dt = row.get("return_date")
+            if isinstance(dt, (datetime.date, datetime.datetime)):
+                row["return_date"] = dt.strftime("%Y-%m-%d")
+            elif isinstance(dt, str) and "GMT" in dt:
+                try:
+                    parsed = datetime.datetime.strptime(dt, "%a, %d %b %Y %H:%M:%S %Z")
+                    row["return_date"] = parsed.strftime("%Y-%m-%d")
+                except:
+                    row["return_date"] = ""
+
     return jsonify(rows)
+
+
 
 @app.route('/returns/get_return')
 def get_return():
     return_no = request.args.get('return_no', '')
     with get_db() as con:
         cur = con.cursor(dictionary=True)
+
+        # 🔍 Get header
         cur.execute("SELECT * FROM returns_header WHERE return_no = %s", (return_no,))
         header_row = cur.fetchone()
 
+        # ✅ Format return_date in header
+        if header_row:
+            ret_date = header_row.get("return_date")
+            if isinstance(ret_date, (datetime.date, datetime.datetime)):
+                header_row["return_date"] = ret_date.strftime("%Y-%m-%d")
+            elif isinstance(ret_date, str) and "GMT" in ret_date:
+                try:
+                    parsed = datetime.datetime.strptime(ret_date, "%a, %d %b %Y %H:%M:%S %Z")
+                    header_row["return_date"] = parsed.strftime("%Y-%m-%d")
+                except:
+                    header_row["return_date"] = ""
+
+        # 🔍 Get items
         cur.execute("SELECT * FROM returns_items WHERE return_no = %s", (return_no,))
         items = cur.fetchall()
+
+        # ✅ Format expiry_date in each item (if exists)
+        for item in items:
+            exp = item.get("expiry_date")
+            if isinstance(exp, (datetime.date, datetime.datetime)):
+                item["expiry_date"] = exp.strftime("%Y-%m-%d")
+            elif isinstance(exp, str) and "GMT" in exp:
+                try:
+                    parsed = datetime.datetime.strptime(exp, "%a, %d %b %Y %H:%M:%S %Z")
+                    item["expiry_date"] = parsed.strftime("%Y-%m-%d")
+                except:
+                    item["expiry_date"] = ""
 
     return jsonify({"header": header_row, "items": items})
 
-
-@app.route('/returns/print')
-def print_return():
-    return_no = request.args.get('return_no', '')
-    with get_db() as con:
-        cur = con.cursor(dictionary=True)
-        cur.execute("SELECT * FROM returns_header WHERE return_no = %s", (return_no,))
-        header = cur.fetchone()
-
-        cur.execute("SELECT * FROM returns_items WHERE return_no = %s", (return_no,))
-        items = cur.fetchall()
-
-    return render_template('print_return.html', header=header, items=items)
 
 @app.route('/stock_adjustment', methods=['GET'])
 def show_adjust_form():
@@ -1137,6 +1219,8 @@ def save_adjustment():
 
     return "✅ Stock adjusted successfully!"
 
+
+
 @app.route('/adjust_stock/search')
 def search_adjustments():
     q = request.args.get('q', '')
@@ -1150,7 +1234,21 @@ def search_adjustments():
             LIMIT 20
         """, (f'%{q}%', f'%{q}%'))
         rows = cur.fetchall()
+
+        # ✅ Format adjustment_date
+        for row in rows:
+            adj_date = row.get("adjustment_date")
+            if isinstance(adj_date, (datetime.date, datetime.datetime)):
+                row["adjustment_date"] = adj_date.strftime("%Y-%m-%d")
+            elif isinstance(adj_date, str) and "GMT" in adj_date:
+                try:
+                    parsed = datetime.datetime.strptime(adj_date, "%a, %d %b %Y %H:%M:%S %Z")
+                    row["adjustment_date"] = parsed.strftime("%Y-%m-%d")
+                except:
+                    row["adjustment_date"] = ""
+
     return jsonify(rows)
+
 
 @app.route('/adjust_stock/get_adjustment')
 def get_adjustment():
@@ -1167,7 +1265,30 @@ def get_adjustment():
         """, (adj_id,))
         row = cur.fetchone()
 
+        # ✅ Format dates
+        if row:
+            adj_date = row.get("adjustment_date")
+            if isinstance(adj_date, (datetime.date, datetime.datetime)):
+                row["adjustment_date"] = adj_date.strftime("%Y-%m-%d")
+            elif isinstance(adj_date, str) and "GMT" in adj_date:
+                try:
+                    parsed = datetime.datetime.strptime(adj_date, "%a, %d %b %Y %H:%M:%S %Z")
+                    row["adjustment_date"] = parsed.strftime("%Y-%m-%d")
+                except:
+                    row["adjustment_date"] = ""
+
+            exp = row.get("expiry_date")
+            if isinstance(exp, (datetime.date, datetime.datetime)):
+                row["expiry_date"] = exp.strftime("%Y-%m-%d")
+            elif isinstance(exp, str) and "GMT" in exp:
+                try:
+                    parsed = datetime.datetime.strptime(exp, "%a, %d %b %Y %H:%M:%S %Z")
+                    row["expiry_date"] = parsed.strftime("%Y-%m-%d")
+                except:
+                    row["expiry_date"] = ""
+
     return jsonify({'adjustment': row if row else {}})
+
 
 @app.route("/pharmacy/search_mrno")
 def search_mrno():
@@ -1212,7 +1333,7 @@ def sales_report():
     from_date = request.args.get("from_date")
     to_date = request.args.get("to_date")
     report_type = request.args.get("report_type")
-    print("DEBUG - Received report_type:", report_type)
+    
 
     if not from_date or not to_date or not report_type:
         return render_template("sales_report.html", data=None, headers=[], report_type="", from_date="", to_date="")
