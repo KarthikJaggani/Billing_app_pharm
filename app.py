@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, redirect, jsonify, session, f
 from email.utils import parsedate_to_datetime
 import mysql.connector
 import pandas as pd
-import datetime
+from datetime import datetime
 import os
 import uuid
 
@@ -419,7 +419,6 @@ def pharmacy_form():
     return render_template("transaction_form.html", datetime=datetime.datetime)
 
 
-from datetime import datetime
 
 @app.route('/pharmacy/search_items')
 def search_items():
@@ -452,17 +451,22 @@ def search_items():
         rows = []
         for r in cur.fetchall():
             row = dict(zip([d[0] for d in cur.description], r))
-            # ✅ convert expiry_date to string format 'YYYY-MM-DD'
-            if isinstance(row["expiry_date"], datetime):
-                row["expiry_date"] = row["expiry_date"].strftime("%Y-%m-%d")
+            expiry = row.get("expiry_date")
+            if isinstance(expiry, datetime):
+                row["expiry_date"] = expiry.strftime("%Y-%m-%d")
+            elif isinstance(expiry, str) and "GMT" in expiry:
+                try:
+                    dt = datetime.strptime(expiry, "%a, %d %b %Y %H:%M:%S %Z")
+                    row["expiry_date"] = dt.strftime("%Y-%m-%d")
+                except:
+                    row["expiry_date"] = ""
             rows.append(row)
         return jsonify(rows)
     except Exception as e:
-        return jsonify({"error": f"DB error: {str(e)}"}), 500
+        return jsonify({"error": f"❌ DB error: {str(e)}"}), 500
     finally:
         cur.close()
         conn.close()
-
 
 @app.route('/pharmacy/search_bills')
 def search_bills():
