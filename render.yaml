@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: pharmacy-app
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    plan: free
+    envVars:
+      - key: DB_HOST
+        value: mainline.proxy.rlwy.net
+      - key: DB_PORT
+        value: 19425
+      - key: DB_USER
+        value: root
+      - key: DB_PASS
+        value: TvldZfSkhSHBbIMQQIVbmovTispJOJun
+      - key: DB_NAME
+        value: railway
