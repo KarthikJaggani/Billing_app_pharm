@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Master Form</title>
+  <style>
+  body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(to right, #e0f7fa, #b2ebf2); /* Soft blue gradient */
+    color: #333;
+  }
+
+  .form-container {
+    background: #ffffffee; /* Light white background with slight transparency */
+    padding: 30px;
+    margin: 40px auto;
+    width: 90%;
+    max-width: 1000px;
+    border-radius: 15px;
+    box-shadow: 0 0 15px rgba(0,0,0,0.1); /* Lighter shadow */
+  }
+
+  h2 {
+    text-align: center;
+    margin-bottom: 20px;
+    color: #007bff;
+  }
+
+  button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    margin: 10px 5px;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+
+  button:hover {
+    background-color: #0056b3;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+  }
+
+  th, td {
+    border: 1px solid #ccc;
+    padding: 10px;
+    text-align: center;
+  }
+
+  th {
+    background-color: #90caf9;
+    color: white;
+  }
+
+  input, select {
+    padding: 5px;
+    width: 100%;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+  }
+</style>
+
+</head>
+<body>
+<h2>📋 Master Medicine Entry</h2>
+
+  <form id="gridForm" onsubmit="return submitMasterForm(event)">
+    <table id="grid">
+      <thead>
+        <tr>
+          <th>Item Name</th><th>Batch</th><th>Expiry</th><th>Pack</th>
+          <th>Avail Qty</th><th>Buy ₹</th><th>MRP ₹</th><th>Sell ₹</th><th>Area</th><th>➕</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><input name="item_name" required></td>
+          <td><input name="batch_no" required></td>
+		  <td><input type="date" name="expiry_date" class="expiry-date" required></td>
+          <td><input type="number" name="pack" min="1" required></td>
+          <td><input type="number" name="available_qty" min="1" required></td>
+          <td><input type="number" step="0.01" name="buying_price" min="0.1" required></td>
+          <td><input type="number" step="0.01" name="mrp" min="0.1"required></td>
+          <td><input type="number" step="0.01" name="selling_price"  min="0.1" required></td>
+		  <td><input name="area" placeholder="Shelf A / Rack 1"></td>
+
+          <td><span style="cursor:pointer; font-weight:bold;" onclick="addRow(this)">+</span>&nbsp;&nbsp;
+             <span style="cursor:pointer; color:red;" onclick="deleteRow(this)">🗑️</span></td>
+		  <td><input  type="hidden" name="item_id"  ></td>
+		  
+		  
+        </tr>
+      </tbody>
+    </table>
+
+    <button type="submit">💾 Save</button>
+	<div id="msg" style="color:green; font-weight:bold; margin:10px 0;"></div>
+    <button type="button" onclick="clearGrid()">🧹 Clear</button>
+	<button type="button" onclick="deleteCurrent()">🗑️ Delete</button>
+
+	
+     
+
+  </form>
+
+  <br>
+  <input type="text" id="searchBox" placeholder="Search item..." onkeyup="doSearch()">
+  <ul id="resultList" style="list-style:none;padding:0;"></ul>
+
+  <br><br>
+  <form action="/master/upload" method="POST" enctype="multipart/form-data">
+    <input type="file" name="excel_file" accept=".xlsx" required>
+    <button>📤 Upload Excel</button>
+  </form>
+
+
+<script>
+function addRow(){
+  let row=document.querySelector('#grid tbody tr').cloneNode(true);
+  row.querySelectorAll('input').forEach(i=>i.value="");
+  document.querySelector('#grid tbody').appendChild(row);
+}
+function deleteRow(button) {
+  const row = button.closest('tr');
+  const tbody = row.parentNode;
+
+  // Don't delete if only one row remains
+  if (tbody.rows.length === 1) {
+    alert("At least one row is required.");
+    return;
+  }
+
+  tbody.removeChild(row);
+}
+function deleteCurrent() {
+  const itemId = document.querySelector('input[name=item_id]')?.value;
+  const itemName = document.querySelector('input[name=item_name]')?.value;
+
+  if (!itemId) {
+    alert("❌ No item selected to delete.");
+    return;
+  }
+
+  // Use itemName in the confirmation message if available
+  const confirmMsg = itemName
+    ? `Delete item "${itemName}"?`
+    : `Delete item ${itemId}?`;  // fallback to itemId if itemName is not available
+
+  if (!confirm(confirmMsg)) return;
+
+  fetch(`/master/delete/${itemId}`, { method: 'POST' })
+    .then(res => res.text())
+    .then(msg => {
+      alert(msg);
+      clearGrid();  // You can optionally reset the form
+    })
+    .catch(err => alert("❌ Delete error: " + err));
+}
+
+function validateForm() {
+    const qty = parseInt(document.getElementById("available_qty").value);
+    if (isNaN(qty) || qty <= 0) {
+        alert("Available Quantity must be greater than zero.");
+        return false; // Prevent form submission
+    }
+    return true;
+}
+function clearForm() {
+  // Clear all input fields inside the grid
+  document.querySelectorAll("#grid input").forEach(inp => inp.value = "");
+
+  // Clear message
+  document.getElementById("msg").innerText = "";
+}
+
+
+function clearGrid(){
+  document.querySelectorAll('#grid tbody tr').forEach((r, i) => {
+    // ✅ Reset red background if applied
+    r.style.backgroundColor = "";
+
+    if (i === 0) {
+      r.querySelectorAll('input').forEach(e => e.value = "");
+    } else {
+      r.remove();
+    }
+  });
+
+  // ✅ Also clear message
+  const msgBox = document.getElementById("msg");
+  if (msgBox) {
+    msgBox.innerText = "";
+    msgBox.style.color = "green";  // reset color to default
+  }
+}
+function doSearch(){
+  let q=document.getElementById('searchBox').value;
+  if(q.length<1){document.getElementById('resultList').innerHTML="";return;}
+  fetch('/master/search?q='+encodeURIComponent(q))
+    .then(r=>r.json())
+    .then(js=>{
+       let ul=document.getElementById('resultList'); ul.innerHTML="";
+       js.forEach(rec=>{
+          let li=document.createElement('li');
+          li.textContent=rec.item_name+" ("+rec.batch_no+")";
+          li.style.cursor='pointer';
+          li.onclick=()=>populate(rec);
+          ul.appendChild(li);
+       });
+    });
+}
+function populate(rec){
+  
+  const row=document.querySelector('#grid tbody tr');
+  row.style.backgroundColor = ""; 
+  row.querySelector('[name=item_name]').value=rec.item_name;
+  row.querySelector('[name=batch_no]').value=rec.batch_no;
+  row.querySelector('[name=expiry_date]').value=rec.expiry_date.substr(0,10);
+  row.querySelector('[name=pack]').value=rec.pack;
+  row.querySelector('[name=available_qty]').value=rec.available_qty;
+  row.querySelector('[name=buying_price]').value=rec.buying_price;
+  row.querySelector('[name=mrp]').value=rec.mrp;
+  row.querySelector('[name=selling_price]').value=rec.selling_price;
+  row.querySelector('[name=area]').value = rec.area || ''; 
+  row.querySelector('[name=item_id]').value         = rec.item_id;
+  document.getElementById('resultList').innerHTML="";
+  document.getElementById('searchBox').value="";
+  if (rec.is_active === 'N') {
+    row.style.backgroundColor = "#ffe6e6"; // light red
+    document.getElementById("msg").style.color = "red";
+    document.getElementById("msg").innerText = "⚠️ This item is inactive (deleted)";
+  } else {
+    row.style.backgroundColor = ""; // reset if active
+    document.getElementById("msg").innerText = "";
+  }
+}
+function validateForm() {
+  const rows = document.querySelectorAll("#grid tbody tr");
+
+  for (let row of rows) {
+    for (let input of row.querySelectorAll("input")) {
+      // ✅ Skip hidden item_id inputs
+      if (input.name === "item_id" && input.type === "hidden") continue;
+
+      if (!input.value.trim()) {
+        alert("⚠️ Please fill all fields before saving.");
+        input.focus();
+        return false;
+      }
+    }
+  }
+
+  return true; // All required fields are filled
+}
+
+function submitMasterForm(e) {
+  e.preventDefault();
+  if (!validateForm()) return;
+
+  const formData = new FormData(document.getElementById('gridForm'));
+
+  fetch('/master/save', {
+    method: 'POST',
+    body: formData
+  })
+  .then(async res => {
+    const txt = await res.text();
+    if (!res.ok) {
+      throw new Error(txt); // now shows real error
+    }
+    document.getElementById('msg').style.color = 'green';
+    document.getElementById('msg').innerText = txt;
+  })
+  .catch(err => {
+    document.getElementById('msg').style.color = 'red';
+    document.getElementById('msg').innerText = "❌ Error: " + err.message;
+  });
+}
+
+
+
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const expiryInputs = document.querySelectorAll('.expiry-date');
+
+  // Set min date to tomorrow
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const yyyy = tomorrow.getFullYear();
+  const mm = String(tomorrow.getMonth() + 1).padStart(2, '0');
+  const dd = String(tomorrow.getDate()).padStart(2, '0');
+  const minDate = `${yyyy}-${mm}-${dd}`;
+
+  // Apply to each expiry input
+  expiryInputs.forEach(input => {
+    input.setAttribute('min', minDate);
+  });
+});
+</script>
+
+</body>
+</html>

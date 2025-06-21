@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Pharmacy Receipt</title>
+  <style>
+    body { font-family: Arial; padding: 20px; background: #fff; }
+    h2 { text-align: center; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #aaa; padding: 6px; text-align: center; }
+    th { background: #f0f0f0; }
+    .header, .footer { margin-bottom: 10px; }
+    .footer { font-weight: bold; }
+    @media print {
+      button { display: none; }
+    }
+  </style>
+</head>
+<body>
+<h2>🧾 Pharmacy Receipt</h2>
+
+<div class="header">
+  <p>
+    <b>Bill No:</b> {{ hdr.bill_no }}<br>
+    <b>Date:</b> {{ hdr.sale_date }}<br>
+    <b>Customer:</b> {{ hdr.customer_name }}<br>
+    <b>Doctor:</b> {{ hdr.doctor_name }}<br>
+    <b>Payment:</b> {{ hdr.payment_type }}
+  </p>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Item</th>
+      <th>Batch</th>
+      <th>Expiry</th>
+      <th>Pack</th>
+      <th>Qty</th>
+      <th>Net_Price</th>
+      <th>Total</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for i in items %}
+    <tr>
+      <td>{{ i.item_name }}</td>
+      <td>{{ i.batch_no }}</td>
+      <td>{{ i.expiry_date }}</td>
+      <td>{{ i.pack }}</td>
+      <td>{{ i.required_qty }}</td>
+      <td>{{ i.net_price }}</td>
+      <td>{{ i.price }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<div class="footer">
+  <p>
+    Total: ₹{{ hdr.total_price }}<br>
+    Discount: {{ hdr.discount_percent }}%<br>
+    Net Total: ₹{{ hdr.net_total }}<br>
+    Remarks: {{ hdr.remarks }}
+  </p>
+</div>
+
+<button onclick="window.print()">🖨️ Print Now</button>
+</body>
+</html>

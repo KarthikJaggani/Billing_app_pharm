@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Sales Report</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background-color: #f8f9fa;
+    }
+
+    h2 {
+      color: #333;
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    form {
+      background-color: #ffffff;
+      padding: 20px;
+      border-radius: 12px;
+      max-width: 600px;
+      margin: auto;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      color: #555;
+      font-weight: bold;
+    }
+
+    input[type="date"], select {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 20px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      background-color: #f0f0f0;
+    }
+
+    button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      display: block;
+      margin: auto;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    table {
+      width: 90%;
+      margin: 30px auto;
+      border-collapse: collapse;
+      background-color: #ffffff;
+      border: 1px solid #ddd;
+    }
+
+    th, td {
+      border: 1px solid #ddd;
+      padding: 10px;
+      text-align: center;
+    }
+
+    th {
+      background-color: #007bff;
+      color: white;
+    }
+
+    tr:nth-child(even) {
+      background-color: #f2f2f2;
+    }
+
+    tr:hover {
+      background-color: #e6f0ff;
+    }
+
+    .no-data {
+      text-align: center;
+      margin-top: 40px;
+      color: #888;
+      font-size: 18px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Sales Report</h2>
+
+  <form method="GET" action="/sales_report">
+  <label for="from_date">From Date:</label>
+  <input type="date" name="from_date" id="from_date" value="{{ from_date }}" required>
+
+  <label for="to_date">To Date:</label>
+  <input type="date" name="to_date" id="to_date" value="{{ to_date }}" required>
+
+  <label for="report_type">Report Type:</label>
+  <select name="report_type" id="report_type" required>
+    <option value="">-- Select Report Type --</option>
+    <option value="item_sold_qty" {% if report_type == 'item_sold_qty' %}selected{% endif %}>Item-wise Sold Quantity</option>
+    <option value="daily_sale" {% if report_type == 'daily_sale' %}selected{% endif %}>Daily Sale Data</option>
+    <option value="item_sold_count" {% if report_type == 'item_sold_count' %}selected{% endif %}>Number of Times Item Sold</option>
+    <option value="item_amount_generated" {% if report_type == 'item_amount_generated' %}selected{% endif %}>Item-wise Amount Generated</option>
+    <option value="most_margin_items" {% if report_type == 'most_margin_items' %}selected{% endif %}>Most Margin Getting Items</option>
+  </select>
+
+  <button type="submit">Generate Report</button>
+</form>
+
+
+  {% if data %}
+    <h3 style="text-align:center;">Report: {{ report_type.replace('_',' ').title() }} from {{ from_date }} to {{ to_date }}</h3>
+    <table>
+      <thead>
+        <tr>
+          {% for col in headers %}
+            <th>{{ col }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in data %}
+          <tr>
+            {% for val in row %}
+              <td>{{ val }}</td>
+            {% endfor %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% elif report_type %}
+    <div class="no-data">No data found for selected filters.</div>
+  {% endif %}
+  
+<script>
+  window.onload = function () {
+    // Detect if it's a refresh or reload
+    const navType = performance.getEntriesByType("navigation")[0].type;
+    if (navType === "reload") {
+      // Redirect to clean page to clear data
+      window.location.href = "/sales_report";
+    }
+  };
+</script>
+
+</script>
+
+</body>
+</html>

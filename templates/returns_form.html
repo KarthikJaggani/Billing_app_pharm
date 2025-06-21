@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Pharmacy Return</title>
+<style>
+  body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(to right, #e0f7fa, #b2ebf2);
+    color: #333;
+  }
+  .form-container {
+    background: #ffffffee;
+    padding: 30px;
+    margin: 40px auto;
+    width: 90%;
+    max-width: 1000px;
+    border-radius: 15px;
+    box-shadow: 0 0 15px rgba(0,0,0,0.1);
+  }
+  h2 {
+    text-align: center;
+    margin-bottom: 20px;
+    color: #007bff;
+  }
+  button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    margin: 10px 5px;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  button:hover {
+    background-color: #0056b3;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+  }
+  th, td {
+    border: 1px solid #ccc;
+    padding: 10px;
+    text-align: center;
+  }
+  th {
+    background-color: #90caf9;
+    color: white;
+  }
+  input {
+    padding: 5px;
+    width: 100%;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+  }
+  #msg { font-weight: bold; margin: 8px 0; }
+</style>
+</head>
+<body>
+<div class="form-container">
+  <h2>🔄 Pharmacy Return</h2>
+  <div id="msg"></div>
+
+  <form id="returnForm" onsubmit="return saveReturn(event)">
+     <div>
+      <label>Return No:
+        <input type="text" name="return_no" id="return_no" readonly>
+      </label>
+    </div>
+    <div>
+      <label>Bill No:
+        <input type="text" id="bill_no" name="bill_no" required>
+        <button type="button" onclick="fetchBillItems()">Search Bill</button>
+      </label>
+    </div>
+    <div>
+      <label>Sale Date:
+        <input type="date" name="sale_date" readonly>
+      </label>
+    </div>
+    <div>
+      <label>Day Bill No:
+        <input type="text" name="day_bill_id" readonly>
+      </label>
+    </div>
+    <div>
+      <label>Patient:
+        <input name="customer_name" readonly>
+      </label>
+    </div>
+    <div>
+      <label>Doctor:
+        <input name="doctor_name" readonly>
+      </label>
+    </div>
+    <div>
+      <label>Prescription No:
+        <input name="prescription_ref" readonly>
+      </label>
+    </div>
+    <div>
+      <label>Payment:
+        <input name="payment_type" readonly>
+      </label>
+    </div>
+ 
+    <div>
+      <label>Reason:
+        <input type="text" name="reason">
+      </label>
+    </div>
+
+    <table id="returnGrid">
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Batch</th>
+          <th>Expiry</th>
+          <th>Pack</th>
+          <th>Avail</th>
+          <th>MRP</th>
+          <th>Net ₹</th>
+          <th>Sold Qty</th>
+          <th>Return Qty</th>
+          <th>Return Amount</th>
+		  <th>🗑️</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+	
+    <div>
+  <label>Discount %:
+    <input type="number" name="discount_percent" id="discount_percent" readonly>
+  </label>
+</div>
+    <p>Return Amount ₹<input name="total_amount" id="total_amount" readonly></p>
+
+    <button type="submit">💾 Save Return</button>
+    <button type="button" onclick="location.reload()">🧹 Clear</button>
+    <button type="button" onclick="showReturnSearch()">🔍 Search</button>
+    <button type="button" onclick="printReturn()">🖨️ Print</button>
+  </form>
+</div>
+
+<div id="returnSearch" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#0008;align-items:center;justify-content:center">
+  <div style="background:#fff;padding:20px;width:500px;border-radius:10px;max-height:70vh;overflow:auto">
+    <h4>Search Returns</h4>
+    <input id="returnSearchInput" placeholder="Type return no or customer name" onkeyup="searchReturns(this.value)" style="width:100%;padding:8px;margin-bottom:10px">
+    <table style="width:100%"><tbody id="returnRows"></tbody></table>
+    <button onclick="document.getElementById('returnSearch').style.display='none'">Close</button>
+  </div>
+</div>
+
+<script>
+function fetchBillItems() {
+  const billNo = document.getElementById('bill_no').value;
+  if (!billNo) return alert("Enter Bill No");
+
+  fetch('/returns/fetch_bill?bill_no=' + encodeURIComponent(billNo))
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) {
+        alert(data.error);
+        return;
+      }
+      const header = data.header || {};
+      document.querySelector('[name="sale_date"]').value = header.sale_date || '';
+      document.querySelector('[name="day_bill_id"]').value = header.day_bill_id || '';
+      document.querySelector('[name="customer_name"]').value = header.customer_name || '';
+      document.querySelector('[name="doctor_name"]').value = header.doctor_name || '';
+      document.querySelector('[name="prescription_ref"]').value = header.prescription_ref || '';
+      document.querySelector('[name="payment_type"]').value = header.payment_type || '';
+	  document.getElementById('discount_percent').value = header.discount_percent || 0;
+
+      const items = data.items || [];
+      if (items.length === 0) {
+        alert("No items found for this bill!");
+        return;
+      }
+
+      const tbody = document.querySelector('#returnGrid tbody');
+      tbody.innerHTML = '';
+      items.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><input name="item_name[]" value="${item.item_name}" readonly></td>
+          <td><input name="batch_no[]" value="${item.batch_no}" readonly></td>
+          <td><input name="expiry_date[]" value="${item.expiry_date}" readonly></td>
+          <td><input name="pack[]" value="${item.pack}" readonly></td>
+          <td><input name="available_qty[]" value="${item.available_qty}" readonly></td>
+          <td><input name="mrp[]" value="${item.mrp}" readonly></td>
+          <td><input name="net_price[]" value="${item.net_price}" readonly></td>
+          <td><input name="sold_qty[]" value="${item.required_qty}" readonly></td>
+          <td><input name="return_qty[]" type="number" min="0" max="${item.required_qty}" value="0" oninput="calcReturnRow(this)"></td>
+          <td><input name="return_amount[]" value="0" readonly></td>
+		  <td><span style="color:red;cursor:pointer;" onclick="deleteReturnRow(this)">🗑️</span></td>
+
+          <input type="hidden" name="item_id[]" value="${item.item_id}">
+        `;
+        tbody.appendChild(tr);
+      });
+      updateReturnTotal();
+    })
+    .catch(err => alert("❌ Error: " + err.message));
+}
+
+function calcReturnRow(inp) {
+  const row = inp.closest('tr');
+  const qty = +inp.value || 0;
+  const price = +row.querySelector('[name="net_price[]"]').value || 0;
+  row.querySelector('[name="return_amount[]"]').value = (qty * price).toFixed(2);
+  updateReturnTotal();
+}
+
+function updateReturnTotal() {
+  let total = 0;
+  document.querySelectorAll('[name="return_amount[]"]').forEach(inp => {
+    total += +inp.value || 0;
+  });
+
+  const discount = +document.getElementById('discount_percent').value || 0;
+  const discountedTotal = total * (1 - discount / 100);
+  document.getElementById('total_amount').value = discountedTotal.toFixed(2);
+}
+
+
+function deleteReturnRow(button) {
+  const row = button.closest('tr');
+  row.remove();
+}
+
+
+function saveReturn(e) {
+  e.preventDefault();
+  const fd = new FormData(document.getElementById('returnForm'));
+  fetch('/returns', { method: 'POST', body: fd })
+    .then(r => r.text())
+    .then(msg => {
+      document.getElementById('msg').innerText = msg;
+      document.getElementById('msg').style.color = 'green';
+      const match = msg.match(/Return No: (\w+)/);
+      if (match) {
+        document.getElementById('return_no').value = match[1];
+      }
+      document.querySelector('button[type="submit"]').style.display = 'none';
+    })
+    .catch(err => {
+      document.getElementById('msg').innerText = '❌ ' + err;
+      document.getElementById('msg').style.color = 'red';
+    });
+	 document.querySelector('button[type="submit"]').style.display = 'none';   
+     document.querySelectorAll('input, select, textarea').forEach(e => e.setAttribute('readonly', true));
+
+}
+
+function showReturnSearch(){
+  document.getElementById('returnSearch').style.display='flex';
+  document.getElementById('returnSearchInput').value = '';
+  searchReturns('');
+}
+
+function searchReturns(q){
+  fetch('/returns/search?q=' + encodeURIComponent(q))
+    .then(r => r.json())
+    .then(list => {
+      const rows = document.getElementById('returnRows');
+      rows.innerHTML = '';
+      list.forEach(ret => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${ret.return_no}</td><td>${ret.customer_name}</td><td>${ret.return_date}</td>`;
+        tr.onclick = () => loadReturn(ret.return_no);
+        rows.appendChild(tr);
+      });
+    });
+}
+
+function loadReturn(return_no){
+  fetch('/returns/get_return?return_no=' + return_no)
+    .then(r => r.json())
+    .then(data => {
+      if (!data.header || Object.keys(data.header).length === 0) {
+        alert("❌ No data found for Return No: " + return_no);
+        return;
+      }
+      const f = document.forms['returnForm'];
+      for(let k in data.header){
+        if(f[k]) f[k].value = data.header[k];
+      }
+      const tbody = document.querySelector('#returnGrid tbody');
+      tbody.innerHTML = '';
+      data.items.forEach(item => {
+        let r = document.createElement('tr');
+        r.innerHTML = `
+          <td><input name="item_name[]" value="${item.item_name}" readonly></td>
+          <td><input name="batch_no[]" value="${item.batch_no}" readonly></td>
+          <td><input name="expiry_date[]" value="${item.expiry_date}" readonly></td>
+          <td><input name="pack[]" value="${item.pack}" readonly></td>
+          <td><input name="available_qty[]" value="${item.available_qty}" readonly></td>
+          <td><input name="mrp[]" value="${item.mrp}" readonly></td>
+          <td><input name="net_price[]" value="${item.net_price}" readonly></td>
+          <td><input name="sold_qty[]" value="${item.sold_qty}" readonly></td>
+          <td><input name="return_qty[]" value="${item.return_qty}" readonly></td>
+          <td><input name="return_amount[]" value="${item.return_amount}" readonly></td>
+          <input type="hidden" name="item_id[]" value="${item.item_id}">
+        `;
+        tbody.appendChild(r);
+      });
+      updateReturnTotal();
+      document.getElementById('returnSearch').style.display = 'none';
+    });
+	   document.querySelector('button[type="submit"]').style.display = 'none';
+       document.querySelectorAll('input, select, textarea').forEach(e => e.setAttribute('readonly', true));
+
+}
+
+function printReturn(){
+  const returnNo = document.getElementById("return_no").value;
+  if (returnNo) {
+    window.open('/returns/print?return_no=' + returnNo, '_blank');
+  } else {
+    alert("No Return Number found");
+  }
+}
+</script>
+</body>
+</html>

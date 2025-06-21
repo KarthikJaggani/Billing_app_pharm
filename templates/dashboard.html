@@ -1,0 +1,62 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard</title>
+  <style>
+  body {
+    background: linear-gradient(to right, #74ebd5, #acb6e5);
+    font-family: Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+  }
+  .container {
+    background: white;
+    padding: 40px;
+    border-radius: 12px;
+    text-align: center;
+    box-shadow: 0 0 15px rgba(0,0,0,0.2);
+  }
+  h1 {
+    margin-bottom: 30px;
+  }
+  .btn {
+    display: block;
+    width: 250px;
+    margin: 15px auto;
+    padding: 15px;
+    font-size: 18px;
+    border: none;
+    border-radius: 10px;
+    background-color: #3498db;
+    color: white;
+    cursor: pointer;
+  }
+  .btn:hover {
+    background-color: #2980b9;
+  }
+  a {
+    text-decoration: none; /* Remove underline */
+  }
+</style>
+
+</head>
+<body>
+  <div class="container">
+    <h1>Welcome 🏥</h1>
+	<a href="/patient"><button class="btn">Patients Registration</button></a>
+    <a href="/master"><button class="btn">📦 Master Form</button></a>
+    <a href="/pharmacy"><button class="btn">🧾 Pharmacy Transaction</button></a>
+	<a href="{{ url_for('pharmacy_reports') }}">
+  <button class="btn btn-primary">Pharmacy Reports</button></a>
+     <a href="/stock-grid" class="btn btn-outline-info m-2">🧮 View Stock Grid</a>
+	 <a href="/returns" class="btn">Pharmacy Return</a>
+	 <a href="/stock_adjustment"><button class="btn">Stock Management</button></a>
+	 <a href="/sales_report"><button class="btn">Sales Report</button></a>
+
+  </div>
+</body>
+</html>

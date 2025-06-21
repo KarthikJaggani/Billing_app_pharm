@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Patient Registration Print</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .details {
+      border: 1px solid #000;
+      padding: 15px;
+      margin-bottom: 30px;
+    }
+
+    .details table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .details td {
+      padding: 8px;
+      vertical-align: top;
+    }
+
+    .blank-area {
+      height: 600px; /* Adjust height as needed */
+      border: 1px dashed #999;
+      padding: 10px;
+    }
+
+    @media print {
+      button {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h2>🩺 Patient Registration Slip</h2>
+</div>
+
+<div class="details">
+  <table>
+    <tr>
+      <td><strong>Name:</strong> {{ patient.full_name  }}</td>
+      <td><strong>Age:</strong> {{ patient.age }}</td>
+    </tr>
+    <tr>
+      <td><strong>Gender:</strong> {{ patient.gender }}</td>
+      <td><strong>Phone:</strong> {{ patient.phone }}</td>
+    </tr>
+    <tr>
+      <td colspan="2"><strong>Address:</strong> {{ patient.address }}</td>
+    </tr>
+    <tr>
+      <td><strong>MR No:</strong> {{ patient.patient_id }}</td>
+      <td><strong>Visit Type:</strong> {{ patient.patient_type  }}</td>
+    </tr>
+  </table>
+</div>
+
+<div class="blank-area">
+  <p><em>Write prescription or notes here...</em></p>
+</div>
+
+<button onclick="window.print()">🖨️ Print</button>
+
+</body>
+</html>

@@ -1,0 +1,126 @@
+<!-- stock_grid.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Stock Level Grid</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+  <style>
+    .stock-card {
+      border-radius: 20px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .grid-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+	
+  </style>
+</head>
+<body>
+  <div class="container py-5">
+    <h2 class="text-center mb-4">📦 Stock Level Dashboard</h2>
+    <div class="row">
+      <!-- < 25 -->
+      <div class="col-md-6">
+        <div class="stock-card bg-danger text-white">
+          <div class="grid-title">Items less than 25</div>
+          <ul>
+            {% for item in red_items %}
+            <li>{{ item['item_name'] }} - {{ item['quantity'] }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+      <!-- 25 - 49 -->
+      <div class="col-md-6">
+        <div class="stock-card bg-warning">
+          <div class="grid-title">Items less than 50 > 25</div>
+          <ul>
+            {% for item in yellow_items %}
+            <li>{{ item['item_name'] }} - {{ item['quantity'] }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+      <!-- 50 - 74 -->
+      <div class="col-md-6">
+        <div class="stock-card bg-primary text-white">
+          <div class="grid-title">Items less than 75 > 50</div>
+          <ul>
+            {% for item in blue_items %}
+            <li>{{ item['item_name'] }} - {{ item['quantity'] }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+      <!-- 75 - 99 -->
+      <div class="col-md-6">
+        <div class="stock-card bg-success text-white">
+          <div class="grid-title">Items less than 100 > 75</div>
+          <ul>
+            {% for item in green_items %}
+            <li>{{ item['item_name'] }} - {{ item['quantity'] }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- NEW: Expiring in 1 Month -->
+    <div class="row mt-4">
+      <div class="col-12">
+        <div class="stock-card bg-warning text-dark">
+          <div class="grid-title">🟠 Medicines Expiring in 1 Month</div>
+          <ul>
+            {% for item in expiring_1_month %}
+            <li>{{ item['item_name'] }} - Expiry: {{ item['expiry_date'] }}</li>
+            {% else %}
+            <li>No items expiring in 1 month.</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- NEW: Expiring in 3 Months -->
+    <div class="row mt-4">
+      <div class="col-12">
+        <div class="stock-card bg-info text-dark">
+          <div class="grid-title">🔵 Medicines Expiring in 3 Months</div>
+          <ul>
+            {% for item in expiring_3_months %}
+            <li>{{ item['item_name'] }} - Expiry: {{ item['expiry_date'] }}</li>
+            {% else %}
+            <li>No items expiring in 3 months.</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+
+     <!-- NEW: Expired Medicines -->
+    <div class="row mt-4">
+      <div class="col-12">
+        <div class="stock-card bg-danger text-white">
+          <div class="grid-title">🔴 Expired Medicines</div>
+          <ul>
+            {% for item in expired_items %}
+            <li>{{ item['item_name'] }} - Expired on: {{ item['expiry_date'] }}</li>
+            {% else %}
+            <li>No expired items.</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+    
+  </div>	 
+    
+<script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+
+
+</body>
+</html>

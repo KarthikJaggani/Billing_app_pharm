@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>⚙️ Stock Adjustment</title>
+<style>
+  body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(to right, #e0f7fa, #b2ebf2);
+    color: #333;
+  }
+  .form-container {
+    background: #ffffffee;
+    padding: 30px;
+    margin: 40px auto;
+    width: 90%;
+    max-width: 1000px;
+    border-radius: 15px;
+    box-shadow: 0 0 15px rgba(0,0,0,0.1);
+  }
+  h2 {
+    text-align: center;
+    margin-bottom: 20px;
+    color: #007bff;
+  }
+  button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    margin: 10px 5px;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  button:hover {
+    background-color: #0056b3;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+  }
+  th, td {
+    border: 1px solid #ccc;
+    padding: 10px;
+    text-align: center;
+  }
+  th {
+    background-color: #90caf9;
+    color: white;
+  }
+  input {
+    padding: 5px;
+    width: 100%;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+  }
+  #msg { font-weight: bold; margin: 8px 0; }
+</style>
+</head>
+<body>
+
+<div class="form-container">
+  <h2>⚙️ Stock Adjustment</h2>
+
+  <div id="msg"></div>
+
+  <form id="adjustForm" onsubmit="return saveAdjustment(event)">
+    <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+      <label style="flex: 1 1 200px;">Adjustment Date:
+        <input type="date" name="adjustment_date" value="{{ datetime.datetime.utcnow().strftime('%Y-%m-%d') }}" readonly>
+      </label>
+     <label style="flex: 1 1 200px;">Adjusted By:
+  <input type="text" name="adjusted_by" value="{{ username }}" readonly>
+</label>
+    </div>
+
+    <div style="margin-top: 10px;">
+      <button type="submit">💾 Save</button>
+      <button type="button" onclick="location.reload()">🧹 Clear</button>
+	  <button type="button" onclick="showAdjustmentSearch()">🔍 Search</button>
+
+    </div>
+
+    <table id="adjustGrid">
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Batch</th>
+          <th>Expiry</th>
+          <th>Pack</th>
+          <th>Avail Qty</th>
+          <th>Adjust Qty</th>
+          <th>Reason</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>
+             <input name="item_name" onkeyup="showPopup(this)" required>
+             <input type="hidden" name="item_id">
+           </td>
+          <td><input name="batch_no" readonly></td>
+          <td><input name="expiry_date" readonly></td>
+          <td><input name="pack" readonly></td>
+          <td><input name="available_qty" readonly></td>
+          <td><input name="adjust_qty" type="number" required></td>
+          <td><input name="reason" required></td>
+        </tr>
+      </tbody>
+    </table>
+  </form>
+</div>
+
+<!-- Popup for item search -->
+<div id="popup" style="position:fixed; top:0; left:0; width:100%; height:100%; background:#0008; display:none; align-items:center; justify-content:center;">
+  <div style="background:#fff; padding:10px; border-radius:8px; max-height:70vh; overflow:auto; width:500px;">
+    <h4>Select Item</h4>
+    <input id="searchTxt" placeholder="Type to search" onkeyup="searchItem(this.value)">
+    <table>
+      <thead><tr><th>Item</th><th>Batch</th><th>Expiry</th><th>Avail</th></tr></thead>
+      <tbody id="popRows"></tbody>
+    </table>
+    <button onclick="closePopup()">Close</button>
+  </div>
+</div>
+
+<div id="adjustmentSearch" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:#0008; align-items:center; justify-content:center;">
+  <div style="background:#fff; padding:20px; width:500px; border-radius:10px; max-height:70vh; overflow:auto;">
+    <h4>Search Adjustments</h4>
+    <input id="adjustmentSearchInput" placeholder="Type item name or reason" onkeyup="searchAdjustments(this.value)" style="width:100%; padding:8px; margin-bottom:10px;">
+    <table style="width:100%;"><tbody id="adjustmentRows"></tbody></table>
+    <button onclick="document.getElementById('adjustmentSearch').style.display='none'">Close</button>
+  </div>
+</div>
+
+<script>
+let currentInp;
+
+function showPopup(inp) {
+  currentInp = inp;
+  document.getElementById('popup').style.display = 'flex';
+  document.getElementById('searchTxt').value = inp.value;
+  searchItem(inp.value);
+}
+
+function searchItem(q) {
+  fetch('/pharmacy/search_items?q=' + encodeURIComponent(q))
+    .then(r => r.json())
+    .then(items => {
+      let tbody = document.getElementById('popRows');
+      tbody.innerHTML = '';
+      if (items.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4">No match</td></tr>';
+      } else {
+        items.forEach(item => {
+          let tr = document.createElement('tr');
+          tr.innerHTML = `<td>${item.item_name}</td><td>${item.batch_no}</td><td>${item.expiry_date}</td><td>${item.available_qty}</td>`;
+          tr.onclick = () => selectItem(item);
+          tbody.appendChild(tr);
+        });
+      }
+    });
+}
+
+function selectItem(item) {
+  const row = currentInp.closest('tr');
+  row.querySelector('[name="item_name"]').value = item.item_name;
+  row.querySelector('[name="batch_no"]').value = item.batch_no;
+  row.querySelector('[name="expiry_date"]').value = item.expiry_date;
+  row.querySelector('[name="pack"]').value = item.pack;
+  row.querySelector('[name="available_qty"]').value = item.available_qty;
+  row.querySelector('[name="item_id"]').value = item.item_id;
+  closePopup();
+}
+
+function closePopup() {
+  document.getElementById('popup').style.display = 'none';
+}
+
+function saveAdjustment(e) {
+  e.preventDefault();
+  const fd = new FormData(document.getElementById('adjustForm'));
+  fetch('/adjust_stock', { method: 'POST', body: fd })
+    .then(r => r.text())
+    .then(msg => {
+      document.getElementById('msg').innerText = msg;
+      document.getElementById('msg').style.color = 'green';
+	  document.querySelector('button[type="submit"]').style.display = 'none';
+    })
+    .catch(err => {
+      document.getElementById('msg').innerText = '❌ ' + err;
+      document.getElementById('msg').style.color = 'red';
+    });
+}
+
+
+function showAdjustmentSearch(){
+  document.getElementById('adjustmentSearch').style.display='flex';
+  document.getElementById('adjustmentSearchInput').value = '';
+  searchAdjustments('');
+}
+
+function searchAdjustments(q){
+  fetch('/adjust_stock/search?q=' + encodeURIComponent(q))
+    .then(r => r.json())
+    .then(list => {
+      let rows = document.getElementById('adjustmentRows');
+      rows.innerHTML = '';
+      list.forEach(adj => {
+        let tr = document.createElement('tr');
+        tr.innerHTML = `<td>${adj.adjustment_date}</td><td>${adj.item_name}</td><td>${adj.reason}</td>`;
+        tr.onclick = () => loadAdjustment(adj.id);
+        rows.appendChild(tr);
+      });
+    });
+}
+
+function loadAdjustment(adjustment_id){
+  fetch('/adjust_stock/get_adjustment?id=' + adjustment_id)
+    .then(r => r.json())
+    .then(data => {
+      console.log("Loaded adjustment:", data.adjustment); // 🔍 For debugging
+
+      const f = document.forms['adjustForm'];
+      const adj = data.adjustment || {};
+
+      // Header fields
+      f['adjustment_date'].value = adj.adjustment_date || '';
+      f['adjusted_by'].value = adj.adjusted_by_name ?? adj.adjusted_by ?? '';
+
+      // Grid row fields
+      const row = document.querySelector('#adjustGrid tbody tr');
+      row.querySelector('[name="item_name"]').value = adj.item_name || '';
+      row.querySelector('[name="item_id"]').value = adj.item_id || '';
+      row.querySelector('[name="batch_no"]').value = adj.batch_no || '';
+      row.querySelector('[name="expiry_date"]').value = adj.expiry_date || '';
+      row.querySelector('[name="pack"]').value = adj.pack || '';
+      row.querySelector('[name="available_qty"]').value = adj.available_qty || '';
+      row.querySelector('[name="adjust_qty"]').value = adj.adjust_qty || '';
+      row.querySelector('[name="reason"]').value = adj.reason || '';
+            
+      document.querySelector('button[type="submit"]').style.display = 'none';
+      document.getElementById('adjustmentSearch').style.display = 'none';
+    })
+    .catch(err => {
+      console.error("Error loading adjustment:", err);
+      alert("❌ Could not load adjustment. Please try again.");
+    });
+}
+
+
+
+
+</script>
+
+</body>
+</html>

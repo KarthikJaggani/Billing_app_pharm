@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Patient Registration</title>
+<style>
+  body { margin: 0; font-family: Arial, sans-serif; background: linear-gradient(to right, #e0f7fa, #b2ebf2); color: #333; }
+  .form-container { background: #ffffffee; padding: 30px; margin: 40px auto; width: 90%; max-width: 1000px; border-radius: 15px; box-shadow: 0 0 15px rgba(0,0,0,0.1); }
+  h2 { text-align: center; margin-bottom: 20px; color: #007bff; }
+  .form-row { display: flex; align-items: center; margin-bottom: 10px; }
+  .form-row label { width: 200px; flex-shrink: 0; }
+  .form-row input, .form-row select { flex: 1; padding: 5px; border-radius: 4px; border: 1px solid #ccc; }
+  .form-row input[readonly] { background: #eee; }
+  button { background-color: #007bff; color: white; border: none; padding: 10px 20px; margin: 10px 5px; border-radius: 5px; cursor: pointer; }
+  button:hover { background-color: #0056b3; }
+  #popup { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0008; display: none; align-items: center; justify-content: center; }
+  #popBox { background: #fff; padding: 10px 20px; border-radius: 8px; max-height: 70vh; overflow: auto; width: 500px; }
+  #popBox table { width: 100%; border-collapse: collapse; }
+  #popBox th, #popBox td { border: 1px solid #ccc; padding: 5px; text-align: center; }
+  #popBox tr:hover { background: #e0f7fa; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<div class="form-container">
+  <h2>Patient Registration</h2>
+  <form method="POST" id="patientForm">
+    <div class="form-row">
+      <label>Date & Time:</label>
+      <input type="text" name="registration_date" id="registration_date"
+             value="{{ form_data.registration_date if form_data else '' }}" readonly>
+    </div>
+    <div class="form-row">
+      <label>MR No:</label>
+      <input type="text" name="mr_no" value="{{ mr_no or '' }}" readonly>
+    </div>
+	<input type="hidden" name="patient_id" value="{{ form_data.patient_id if form_data else '' }}">
+
+    <div class="form-row">
+      <label>Full Name:</label>
+      <input type="text" name="full_name" value="{{ form_data.full_name if form_data else '' }}" required>
+    </div>
+    <div class="form-row">
+      <label>Age:</label>
+      <input type="number" name="age" min="0" max="100" value="{{ form_data.age if form_data else '' }}" required>
+    </div>
+    <div class="form-row">
+      <label>Gender:</label>
+      <select name="gender" required>
+        <option value="">Select</option>
+        <option value="Male" {% if form_data and form_data.gender == 'Male' %}selected{% endif %}>Male</option>
+        <option value="Female" {% if form_data and form_data.gender == 'Female' %}selected{% endif %}>Female</option>
+        <option value="Other" {% if form_data and form_data.gender == 'Other' %}selected{% endif %}>Other</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>Phone Number:</label>
+      <input type="text" name="phone" pattern="\d{10}" maxlength="10"
+             value="{{ form_data.phone if form_data else '' }}" required>
+    </div>
+    <div class="form-row">
+      <label>Marital Status:</label>
+      <select name="marital_status">
+        <option value="">Select</option>
+        <option value="Single" {% if form_data and form_data.marital_status == 'Single' %}selected{% endif %}>Single</option>
+        <option value="Married" {% if form_data and form_data.marital_status == 'Married' %}selected{% endif %}>Married</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>Address:</label>
+      <input type="text" name="address" value="{{ form_data.address if form_data else '' }}" required>
+    </div>
+    <div class="form-row">
+      <label>Patient Type:</label>
+      <select name="patient_type" required>
+        <option value="">Select</option>
+        <option value="New" {% if form_data and form_data.patient_type == 'New' %}selected{% endif %}>New</option>
+        <option value="Old" {% if form_data and form_data.patient_type == 'Old' %}selected{% endif %}>Old</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>Doctor to Visit:</label>
+      <input type="text" name="doctor_to_visit" value="{{ form_data.doctor_to_visit if form_data else '' }}">
+    </div>
+	
+
+    <div style="text-align:center; margin-top: 20px;">
+      <button type="submit" id="saveBtn" {% if saved %}style="display:none;"{% endif %}>💾 Save</button>
+      <button type="reset" id="clearBtn">🧹 Clear</button>
+      <button type="button" onclick="openPopup()">🔍 Search</button>
+      <button type="button" onclick="printPatient()">🖨️ Print</button>
+    </div>
+  </form>
+</div>
+
+<!-- Search Popup -->
+<div id="popup">
+  <div id="popBox">
+    <h3>Search Patients</h3>
+    <input type="text" id="searchBox" placeholder="Search by MR No, Name, or Phone">
+    <button onclick="searchPatients()">Search</button>
+    <table>
+      <thead><tr><th>MR No</th><th>Full Name</th><th>Phone</th></tr></thead>
+      <tbody id="searchResults"></tbody>
+    </table>
+    <button onclick="closePopup()">Close</button>
+  </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const dateTimeField = document.getElementById("registration_date");
+  if (dateTimeField && dateTimeField.value === "") {
+    setDateTime();  // Only set current date/time if no data loaded!
+  }
+
+  document.getElementById("clearBtn").addEventListener("click", function(e) {
+    e.preventDefault();
+    document.querySelectorAll("#patientForm input, #patientForm select").forEach(function(el) {
+      if (el.name !== "registration_date") {
+        el.value = "";
+        if (el.tagName === "SELECT") el.selectedIndex = 0;
+      }
+    });
+    setDateTime();
+    document.getElementById("saveBtn").style.display = "inline-block";
+  });
+
+  // Remove mr_no from URL after load to ensure refresh clears form
+  if (window.location.search.includes("mr_no")) {
+    const cleanUrl = window.location.origin + window.location.pathname;
+    window.history.replaceState({}, document.title, cleanUrl);
+  }
+});
+
+
+document.querySelector('form').addEventListener('submit', function(e) {
+  const age = parseInt(document.querySelector('[name="age"]').value);
+  if (isNaN(age) || age < 0 || age > 100) {
+    alert("⚠️ Age must be between 0 and 100.");
+    e.preventDefault(); // Stop form submission
+  }
+});
+
+
+function setDateTime() {
+  const f = document.getElementById("registration_date");
+  const now = new Date();
+  const d = now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2, '0') + "-" + String(now.getDate()).padStart(2, '0') + " " +
+             String(now.getHours()).padStart(2, '0') + ":" + String(now.getMinutes()).padStart(2, '0') + ":" + String(now.getSeconds()).padStart(2, '0');
+  f.value = d;
+}
+
+function openPopup() {
+  document.getElementById("popup").style.display = "flex";
+  loadPatients("");
+}
+
+function closePopup() {
+  document.getElementById("popup").style.display = "none";
+}
+
+function searchPatients() {
+  const q = document.getElementById("searchBox").value.trim();
+  loadPatients(q);
+}
+
+function printPatient() {
+  const pid = document.querySelector('input[name="patient_id"]').value;
+  if (pid) {
+    window.open('/patient/print/' + pid, '_blank');
+  } else {
+    alert("❌ Patient ID not found.");
+  }
+}
+
+function loadPatients(query) {
+  fetch("/patient/search", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: "search_query=" + encodeURIComponent(query)
+  })
+  .then(res => res.text())
+  .then(html => { document.getElementById("searchResults").innerHTML = html; });
+}
+
+function selectPatient(mr_no) {
+  window.location.href = "/patient?mr_no=" + mr_no;
+}
+</script>
+
+</body>
+</html>

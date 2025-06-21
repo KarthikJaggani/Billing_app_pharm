@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Pharmacy Transaction</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(to right, #e0f7fa, #b2ebf2);
+      color: #333;
+    }
+    .form-container {
+      background: #ffffffee;
+      padding: 30px;
+      margin: 40px auto;
+      width: 90%;
+      max-width: 1000px;
+      border-radius: 15px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.1);
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #007bff;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      margin: 10px 5px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 10px;
+      text-align: center;
+    }
+    th {
+      background-color: #90caf9;
+      color: white;
+    }
+    input, select {
+      padding: 5px;
+      width: 100%;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+    #msg { font-weight: bold; margin: 8px 0; }
+
+    /* popup */
+    #popup {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: #0008;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+    #popBox {
+      background: #fff;
+      padding: 10px 20px;
+      border-radius: 8px;
+      max-height: 70vh;
+      overflow: auto;
+      width: 500px;
+    }
+    #popBox table { width: 100%; }
+    #popBox tr:hover {
+      background: #e0f7fa;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+<div class="form-container">
+  <h2>💊 Pharmacy Transaction</h2>
+
+  <div id="msg"></div>
+
+  <form id="transForm" onsubmit="return saveBill(event)">
+  <form onsubmit="return validateQty()">
+  <div class="form-row">
+  <label for="visit_type">Visit Type:</label>
+  <select id="visit_type" name="visit_type" onchange="handleVisitTypeChange()">
+    <option value="Walk-in" selected>Walk-in</option>
+    <option value="OP">OP</option>
+    <option value="IP">IP</option>
+  </select>
+</div>
+
+<div class="form-row" id="mrno_row" style="display: none;">
+  <label for="mrno">MR No:</label>
+  <input type="text" id="mrno" name="mrno" placeholder="Enter MR No" onblur="searchMrno()">
+</div>
+    <label>Sale Date:
+      <input type="date" name="sale_date" value="{{ datetime.utcnow().strftime('%Y-%m-%d') }}" readonly>
+    </label>
+	<label>Day Bill No:</label>
+     <input type="text" name="day_bill_id" value="{{ day_bill_id }}" readonly>
+    <!-- Hidden: Bill No (auto-generated) -->
+     <label for="bill_no">Bill Number:</label>
+  <input type="text" id="bill_no" name="bill_no" class="form-control" 
+         value="{{ bill_no }}" readonly>   
+   <label>Patient:
+  <input name="customer_name" id="customer_name" required>
+</label>
+<label>Doctor:
+  <input name="doctor_name" id="doctor_name" required>
+</label>
+    <label>Prescription No:
+      <input name="prescription_ref">
+    </label>
+    <label>Payment:
+      <select name="payment_type">
+        <option>Cash</option><option>UPI</option><option>Card</option><option>Other</option>
+      </select>
+    </label>
+
+    <table id="transGrid">
+      <thead>
+        <tr>
+          <th>Item</th><th>Batch</th><th>Expiry</th><th>Pack</th><th>Avail</th>
+          <th>MRP</th><th>Net ₹</th><th>Qty</th><th>Price</th><th>New Avl</th><th>➕</th>
+        </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><input name="item_name" onkeyup="showPopup(this)" required></td>
+        </td><input type="hidden" name="item_id"></td>
+        <td><input name="batch_no" readonly></td>
+        <td><input name="expiry_date" readonly></td>
+        <td><input name="pack" readonly></td>
+        <td><input name="available_qty" readonly></td>
+        <td><input name="mrp" readonly></td>
+        <td><input name="net_price" readonly></td>
+        <td><input name="required_qty" type="number" min="1" oninput="calcRow(this)"></td>
+        <td><input name="price" type="number" min="1" oninput="calcRow(this)" readonly></td>
+        <td><input name="new_avl_qty" type="number" min="1" readonly></td>
+        <td><span style="cursor:pointer; font-weight:bold;" onclick="addRow(this)">+</span>&nbsp;&nbsp;
+             <span style="cursor:pointer; color:red;" onclick="deleteRow(this)">🗑️</span></td>
+      </tr>
+            </tbody>
+    </table>
+
+    <p>Total ₹<input name="total_price" readonly>
+      Discount % <input name="discount_percent" type="number"  min="0" max="100" value="0" oninput="updateNet()">
+      Net ₹<input name="net_total" readonly></p>
+    <p>Remarks: <input name="remarks" style="width:60%"></p>
+
+    <button type="submit">💾 Save</button>
+    <button type="button" onclick="clearForm()">🧹 Clear</button>
+	<button type="button" onclick="showBillSearch()">🔍 Search</button>
+	<button type="button" onclick="printBill()">🖨️ Print</button>
+  </form>
+</div>
+
+<!-- Search Popup -->
+<div id="popup">
+  <div id="popBox">
+    <h4>Select Item</h4>
+    <input id="searchTxt" placeholder="Type to search" onkeyup="searchItem(this.value)">
+    <table>
+      <thead><tr><th>Item</th><th>Batch</th><th>Expiry</th><th>Qty</th></tr></thead>
+      <tbody id="popRows"></tbody>
+    </table>
+    <button onclick="closePopup()">Close</button>
+  </div>
+</div>
+<!-- Bill Search Popup -->
+<div id="billSearch" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#0008;align-items:center;justify-content:center">
+  <div style="background:#fff;padding:20px;width:500px;border-radius:10px;max-height:70vh;overflow:auto">
+    <h4>Search Bills</h4>
+    <input id="billSearchInput" placeholder="Type name or date" onkeyup="searchBills(this.value)" style="width:100%;padding:8px;margin-bottom:10px">
+    <table style="width:100%"><tbody id="billRows"></tbody></table>
+    <button onclick="document.getElementById('billSearch').style.display='none'">Close</button>
+  </div>
+</div>
+<script>
+let currentInp;
+
+function showPopup(inp) {
+  currentInp = inp;
+  document.getElementById('popup').style.display = 'flex';
+  document.getElementById('searchTxt').value = inp.value;
+  searchItem(inp.value);
+}
+
+function searchItem(q) {
+  fetch('/pharmacy/search_items?q=' + encodeURIComponent(q))
+    .then(r => r.json())
+    .then(items => {
+      let tbody = document.getElementById('popRows');
+      tbody.innerHTML = '';
+      if (items.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4">No match</td></tr>';
+      } else {
+        items.forEach(item => {
+          let tr = document.createElement('tr');
+          tr.innerHTML = `<td>${item.item_name}</td><td>${item.batch_no}</td><td>${item.expiry_date}</td><td>${item.available_qty}</td>`;
+          tr.onclick = () => selectItem(item);
+          tbody.appendChild(tr);
+        });
+      }
+    });
+}
+
+function selectItem(item) {
+  const row = currentInp.closest('tr');
+
+  /* ✨ 1.  Clear the fields that depend on the new selection */
+  row.querySelector('[name=required_qty]').value = '';   // Qty
+  row.querySelector('[name=price]').value        = '';   // Price
+  row.querySelector('[name=new_avl_qty]').value  = '';   // New Avl
+
+  /* ✨ 2.  Populate the row with the chosen item’s details */
+  row.querySelector('[name=item_name]').value    = item.item_name;
+  row.querySelector('[name=item_id]').value      = item.item_id;      // hidden
+  row.querySelector('[name=batch_no]').value     = item.batch_no;
+  row.querySelector('[name=expiry_date]').value  = item.expiry_date;
+  row.querySelector('[name=pack]').value         = item.pack;
+  row.querySelector('[name=available_qty]').value= item.available_qty;
+  row.querySelector('[name=mrp]').value          = item.mrp;
+  row.querySelector('[name=net_price]').value    = item.selling_price;
+
+  /* ✨ 3.  Re-enable Qty entry */
+  row.querySelector('[name=required_qty]').removeAttribute('readonly');
+
+  closePopup();
+}
+
+
+function closePopup() {
+  document.getElementById('popup').style.display = 'none';
+}
+
+function addRow(button) {
+  const row = button.closest('tr');
+  const newRow = row.cloneNode(true);
+
+  // Clear input values in the cloned row
+  newRow.querySelectorAll('input').forEach(input => {
+    input.value = ''; // Clear text
+  });
+
+  // Reset specific fields only if they exist
+  const price = newRow.querySelector('[name=price]');
+  if (price) price.value = '0';
+
+  const totalPrice = newRow.querySelector('[name=total_price]');
+  if (totalPrice) totalPrice.value = '0';
+
+  // Append the new row
+  row.parentNode.appendChild(newRow);
+}
+
+function clearForm() { location.reload(); }
+
+
+function calcRow(qtyInp) {
+  let row = qtyInp.closest('tr');
+  let rawVal = qtyInp.value.trim();
+
+  // 🚫 Don't validate if user is still typing (input is empty)
+  if (rawVal === '') return;
+
+  let req = +rawVal;
+
+  // ✅ Validate only if user entered a value
+  if (isNaN(req) || req <= 0) {
+    alert("❌ Please enter a valid quantity (min 1)");
+    qtyInp.focus();
+    return;
+  }
+
+  let net = +row.querySelector('[name=net_price]').value || 0;
+  let avail = +row.querySelector('[name=available_qty]').value || 0;
+
+  row.querySelector('[name=price]').value = req * net;
+  row.querySelector('[name=new_avl_qty]').value = avail - req;
+
+  updateTotals();
+}
+
+
+
+function updateTotals() {
+  let total = [...document.querySelectorAll('[name=price]')].reduce((s, i) => s + (+i.value || 0), 0);
+  document.querySelector('[name=total_price]').value = total;
+  updateNet();
+}
+
+function updateNet() {
+  let total = +document.querySelector('[name=total_price]').value || 0;
+  let disc = +document.querySelector('[name=discount_percent]').value || 0;
+  document.querySelector('[name=net_total]').value = total - (total * disc / 100);
+}
+
+function validateHeader() {
+  const required = ['customer_name', 'doctor_name'];
+  for (let f of required) {
+    if (!document.querySelector(`[name=${f}]`).value) {
+      alert('Please fill header fields');
+      return false;
+    }
+  }
+  return true;
+}
+
+
+function saveBill(e) {
+  e.preventDefault();
+
+  const saveBtn = document.querySelector('button[type=submit]');
+  saveBtn.disabled = false; // Re-enable in case it was disabled previously
+  saveBtn.style.display = ''; // Make sure it's visible
+
+  // ✅ Validate discount range
+  const discount = +document.querySelector('[name=discount_percent]').value;
+  if (discount < 0 || discount > 100) {
+    alert("❌ Discount must be between 0 and 100.");
+    return false;
+  }
+
+  // ✅ Header validation
+  if (!validateHeader()) return;
+
+  // ✅ Check for duplicate item + batch
+  if (hasDuplicateItemBatch()) {
+    alert("Duplicate item name and batch no combination found in grid.");
+    return;
+  }
+
+  // ✅ Validate all rows
+  let isValid = true;
+  document.querySelectorAll('#transGrid tbody tr').forEach(row => {
+    const requiredQty = +row.querySelector('[name=required_qty]').value || 0;
+    const availableQty = +row.querySelector('[name=available_qty]').value || 0;
+
+    if (requiredQty <= 0) {
+      alert(`❌ Quantity must be greater than 0 for item: ${row.querySelector('[name=item_name]').value}`);
+      isValid = false;
+    } else if (requiredQty > availableQty) {
+      alert(`❌ Quantity exceeds stock for item: ${row.querySelector('[name=item_name]').value}`);
+      isValid = false;
+    }
+  });
+
+  if (!isValid) {
+    saveBtn.disabled = false; // Re-enable Save button if validation fails
+    saveBtn.style.display = ''; // Ensure it's visible
+    return;
+  }
+
+  // ✅ Submit form
+  const fd = new FormData(document.getElementById('transForm'));
+  saveBtn.disabled = true;
+
+  fetch('/pharmacy/save', {
+    method: 'POST',
+    body: fd
+  })
+    .then(r => r.text())
+    .then(txt => {
+      document.getElementById('msg').innerText = txt;
+      document.getElementById('msg').style.color = 'green';
+      saveBtn.style.display = 'none'; // Hide button after success
+    })
+    .catch(err => {
+      document.getElementById('msg').innerText = '❌ ' + err;
+      document.getElementById('msg').style.color = 'red';
+      saveBtn.disabled = false; // Re-enable if error occurs
+    });
+
+  return false;
+}
+
+function hasDuplicateItemBatch() {
+  // Use the same table as in saveBill, adjust if needed
+  const rows = document.querySelectorAll('#transGrid tbody tr');
+  const combinations = new Set();
+
+  for (const row of rows) {
+    // Adjust input names as per your HTML
+    const itemInput = row.querySelector('[name="item_name[]"], [name="item_name"]');
+    const batchInput = row.querySelector('[name="batch_no[]"], [name="batch_no"]');
+    if (!itemInput || !batchInput) continue; // skip if missing inputs
+
+    const itemName = itemInput.value.trim();
+    const batchNo = batchInput.value.trim();
+
+    if (!itemName || !batchNo) continue; // skip empty values if you want
+
+    const key = `${itemName.toLowerCase()}|${batchNo.toLowerCase()}`;
+
+    if (combinations.has(key)) {
+      console.log('Duplicate found:', key); // debug info
+      return true;
+    }
+    combinations.add(key);
+  }
+  return false;
+}
+
+function showBillSearch(){
+  document.getElementById('billSearch').style.display='flex';
+  document.getElementById('billSearchInput').value = '';
+  searchBills('');
+}
+
+function searchBills(q){
+  fetch('/pharmacy/search_bills?q='+encodeURIComponent(q))
+    .then(r => r.json())
+    .then(list => {
+      let rows = document.getElementById('billRows');
+      rows.innerHTML = '';
+      list.forEach(bill => {
+        let tr = document.createElement('tr');
+        tr.innerHTML = `<td>${bill.bill_no}</td><td>${bill.day_bill_id}</td><td>${bill.sale_date}</td><td>${bill.customer_name}</td>`;
+        tr.onclick = () => loadBill(bill.bill_no);
+        rows.appendChild(tr);
+      });
+    });
+}
+
+function loadBill(bill_no) {
+  fetch('/pharmacy/get_bill?bill_no=' + bill_no)
+    .then(r => r.json())
+    .then(data => {
+      const f = document.forms['transForm'];
+
+      // 🔶 Show return warning if bill has return
+      const msgDiv = document.getElementById("msg");
+      const grid = document.getElementById("transGrid");
+      if (data.has_return) {
+        msgDiv.innerText = "⚠️ This bill has return(s)";
+        msgDiv.style.color = "orange";
+        grid.style.backgroundColor = "#fff8e1"; // light yellow
+      } else {
+        msgDiv.innerText = "";
+        msgDiv.style.color = "green";
+        grid.style.backgroundColor = "";
+      }
+
+      // General header fields
+      for (let k in data.header) {
+        if (f[k]) f[k].value = data.header[k];
+      }
+
+      // Explicitly set mrno if visit_type is OP
+      if (data.header.visit_type === 'OP' && f['mrno']) {
+        f['mrno'].value = data.header.mrno || '';
+        f['mrno'].closest('div').style.display = 'block';
+      } else if (f['mrno']) {
+        f['mrno'].value = '';
+        f['mrno'].closest('div').style.display = 'none';
+      }
+
+      // Populate grid items
+      let tbody = document.querySelector('#transGrid tbody');
+      tbody.innerHTML = '';
+      data.items.forEach(item => {
+        let r = tbody.insertRow();
+        r.innerHTML = `
+          <td><input name="item_name" value="${item.item_name}" readonly></td>
+          <td><input name="batch_no" value="${item.batch_no}" readonly></td>
+          <td><input name="expiry_date" value="${item.expiry_date}" readonly></td>
+          <td><input name="pack" value="${item.pack}" readonly></td>
+          <td><input name="available_qty" value="${item.available_qty}" readonly></td>
+          <td><input name="mrp" value="${item.mrp}" readonly></td>
+          <td><input name="net_price" value="${item.net_price}" readonly></td>
+          <td><input name="required_qty" value="${item.required_qty}" readonly></td>
+          <td><input name="price" value="${item.price}" readonly></td>
+          <td><input name="new_avl_qty" value="${item.new_avl_qty}" readonly></td>
+          <td><button type="button" disabled>➕</button></td>`;
+      });
+
+      updateTotals();
+      document.querySelector('button[type="submit"]').style.display = 'none';
+      document.getElementById('billSearch').style.display = 'none';
+    });
+}
+
+
+function printBill() {
+    const billNo = document.getElementById("bill_no").value;
+    if (billNo) {
+      window.open('/pharmacy/print_bill?bill_no=' + billNo, '_blank');
+    } else {
+      alert("No Bill Number found");
+    }
+  }
+
+
+function deleteRow(button) {
+  const row = button.closest('tr');
+  const tbody = row.parentNode;
+
+  // Don't delete if only one row remains
+  if (tbody.rows.length === 1) {
+    alert("At least one row is required.");
+    return;
+  }
+
+  tbody.removeChild(row);
+}
+
+
+function searchMrno() {
+  const mrno = document.getElementById('mrno').value.trim();
+  if (!mrno) return;
+
+  fetch(`/pharmacy/search_mrno?mrno=${encodeURIComponent(mrno)}`)
+    .then(response => response.json())
+    .then(data => {
+      if (data.exists) {
+        const patient = data.patient;
+        document.getElementById('customer_name').value = patient.full_name || '';
+        document.getElementById('doctor_name').value = patient.doctor || '';
+      } else {
+        alert("MRNO not found");
+        document.getElementById('customer_name').value = '';
+        document.getElementById('doctor_name').value = '';
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      alert("Error searching MRNO.");
+    });
+}
+
+function handleVisitTypeChange() {
+  const visitType = document.querySelector('[name="visit_type"]').value;
+  // Example behavior: show/hide mrno field
+  if (visitType === 'OP') {
+    document.querySelector('[name="mrno"]').closest('div').style.display = 'block';
+  } else {
+    document.querySelector('[name="mrno"]').closest('div').style.display = 'none';
+  }
+}
+
+</script>
+
+
+
+</body>
+</html>

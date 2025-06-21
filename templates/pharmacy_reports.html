@@ -1,0 +1,90 @@
+<h2>Pharmacy Reports</h2>
+<style>
+  body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(to right, #e0f7fa, #b2ebf2); /* Soft blue gradient */
+    color: #333;
+  }
+
+  .form-container {
+    background: #ffffffee; /* Light white background with slight transparency */
+    padding: 30px;
+    margin: 40px auto;
+    width: 90%;
+    max-width: 1000px;
+    border-radius: 15px;
+    box-shadow: 0 0 15px rgba(0,0,0,0.1); /* Lighter shadow */
+  }
+
+  h2 {
+    text-align: center;
+    margin-bottom: 20px;
+    color: #007bff;
+  }
+
+  button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    margin: 10px 5px;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+
+  button:hover {
+    background-color: #0056b3;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+  }
+
+  th, td {
+    border: 1px solid #ccc;
+    padding: 10px;
+    text-align: center;
+  }
+
+  th {
+    background-color: #90caf9;
+    color: white;
+  }
+
+  input, select {
+    padding: 5px;
+    width: 100%;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+  }
+</style>
+<form method="POST">
+  <label for="report_type">Select Report Type:</label>
+  <select name="report_type" onchange="this.form.submit()">
+    <option value="daily" {% if report_type == 'daily' %}selected{% endif %}>Daily</option>
+    <option value="weekly" {% if report_type == 'weekly' %}selected{% endif %}>Weekly</option>
+    <option value="monthly" {% if report_type == 'monthly' %}selected{% endif %}>Monthly</option>
+    <option value="quarterly" {% if report_type == 'quarterly' %}selected{% endif %}>Quarterly</option>
+  </select>
+</form>
+
+<table class="table table-bordered mt-3">
+  <thead>
+    <tr><th>Bill No</th><th>Date</th><th>Patient</th><th>Total Amount</th></tr>
+  </thead>
+  <tbody>
+    {% for row in report_data %}
+    <tr>
+      <td>{{ row[0] }}</td>
+      <td>{{ row[1] }}</td>
+      <td>{{ row[2] }}</td>
+      <td>{{ row[3] }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h4 class="mt-3">Total Billing: ₹{{ total_billing }}</h4>

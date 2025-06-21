@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Print Return</title>
+<style>
+  body { font-family: Arial, sans-serif; }
+  table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+  th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+  th { background-color: #f2f2f2; }
+</style>
+</head>
+<body>
+  <h2>Pharmacy Return - {{ header.return_no }}</h2>
+  <p>Bill No: {{ header.bill_no }}</p>
+  <p>Customer: {{ header.customer_name }}</p>
+  <p>Doctor: {{ header.doctor_name }}</p>
+  <p>Return Date: {{ header.return_date }}</p>
+
+
+  <table>
+    <thead>
+      <tr>
+        <th>Item</th>
+        <th>Batch</th>
+        <th>Expiry</th>
+        <th>Pack</th>
+        <th>Sold Qty</th>
+        <th>Return Qty</th>
+        <th>Return Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+      <tr>
+        <td>{{ item.item_name }}</td>
+        <td>{{ item.batch_no }}</td>
+        <td>{{ item.expiry_date }}</td>
+        <td>{{ item.pack }}</td>
+        <td>{{ item.sold_qty }}</td>
+        <td>{{ item.return_qty }}</td>
+        <td>{{ item.return_amount }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p style="margin-top: 10px;"><strong>Total Return Amount: ₹{{ header.total_amount }}</strong></p>
+
+</body>
+</html>
